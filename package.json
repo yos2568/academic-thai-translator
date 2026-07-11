@@ -11,7 +11,8 @@
     "mcp": "node scripts/mcp-server.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:smoke": "npm run package:standalone && node scripts/smoke-test.mjs"
+    "test:smoke": "npm run package:standalone && node scripts/smoke-test.mjs",
+    "benchmark": "node scripts/benchmark-engines.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",

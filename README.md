@@ -84,6 +84,16 @@ An end-to-end smoke test builds the standalone bundle, boots it, and drives uplo
 npm run test:smoke
 ```
 
+## Benchmarking engines
+
+To compare draft/post-edit provider configurations on the same document (latency and QA pass rate), copy `benchmark-providers.example.json` to `benchmark-providers.json`, fill in real credentials, start the app, then run:
+
+```bash
+npm run benchmark
+```
+
+Pass a different fixture or providers file as arguments: `node scripts/benchmark-engines.mjs path/to/doc.txt path/to/providers.json`. Set `TRANSLATOR_APP_URL` if the app isn't at `http://127.0.0.1:3000`.
+
 ## Deployment
 
 See [DEPLOY.md](./DEPLOY.md) for Docker Compose, Caddy, automatic HTTPS, basic authentication, firewall configuration, and update instructions.
