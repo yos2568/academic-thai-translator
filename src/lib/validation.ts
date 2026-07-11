@@ -1,3 +1,5 @@
+import { hasMagicBytes } from "./util";
+
 export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 export type SupportedType = "docx" | "pdf" | "txt" | "png" | "jpg";
@@ -17,11 +19,6 @@ const EXTENSION_MAP: Record<string, SupportedType> = {
   jpg: "jpg",
   jpeg: "jpg",
 };
-
-function hasMagicBytes(buffer: Buffer, bytes: number[]): boolean {
-  if (buffer.length < bytes.length) return false;
-  return bytes.every((b, i) => buffer[i] === b);
-}
 
 /**
  * Validates an upload by extension, size, and file signature (magic bytes),

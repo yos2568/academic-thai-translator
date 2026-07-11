@@ -6,6 +6,7 @@ import { extname, join, posix } from "node:path";
 import { promisify } from "node:util";
 import JSZip from "jszip";
 import type { SupportedType } from "./validation";
+import { clamp, hasMagicBytes } from "./util";
 
 const run = promisify(execFile);
 const MAX_CAPTURED_IMAGES = 24;
@@ -45,19 +46,11 @@ interface ImageAnchor {
   ratio?: number;
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, value));
-}
-
 function typeFromExtension(filename: string): CapturedImageType | null {
   const ext = extname(filename).toLowerCase().replace(".", "");
   if (ext === "jpeg") return "jpg";
   if (ext === "png" || ext === "jpg" || ext === "gif" || ext === "bmp") return ext;
   return null;
-}
-
-function hasMagicBytes(buffer: Buffer, bytes: number[]): boolean {
-  return buffer.length >= bytes.length && bytes.every((byte, index) => buffer[index] === byte);
 }
 
 function typeFromMagic(buffer: Buffer): CapturedImageType | null {
