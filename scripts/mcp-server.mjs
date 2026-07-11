@@ -9,10 +9,14 @@ const APP_URL = (process.env.TRANSLATOR_APP_URL ?? "http://127.0.0.1:3000").repl
 const OPENROUTER_BASE_URL = process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1";
 
 const ProviderSchema = z.object({
-  provider: z.enum(["anthropic", "openai-compatible", "ollama"]),
+  provider: z.enum(["anthropic", "openai-compatible", "ollama", "oauth-openai-compatible"]),
   apiKey: z.string().optional(),
   baseUrl: z.string().optional(),
   model: z.string().optional(),
+  tokenUrl: z.string().optional(),
+  clientId: z.string().optional(),
+  clientSecret: z.string().optional(),
+  scope: z.string().optional(),
 });
 
 const PipelineSchema = z.object({
