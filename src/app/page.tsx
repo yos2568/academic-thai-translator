@@ -7,6 +7,7 @@ import TextPreview from "@/components/TextPreview";
 import TranslationPanel from "@/components/TranslationPanel";
 import ExportBar from "@/components/ExportBar";
 import SettingsPanel, { encodeSettings, type SavedSettings } from "@/components/SettingsPanel";
+import GlossaryEditor, { type GlossaryTerm } from "@/components/GlossaryEditor";
 import QaReportCard from "@/components/QaReportCard";
 import type { QaReport } from "@/lib/qa/checks";
 import type { CapturedDocumentImage } from "@/lib/document-images";
@@ -32,6 +33,7 @@ export default function Home() {
   const [progress, setProgress] = useState<{ chunk: number; total: number } | null>(null);
   const [stage, setStage] = useState<"draft" | "postedit" | "qa">("draft");
   const [settings, setSettings] = useState<SavedSettings | null>(null);
+  const [pinnedGlossary, setPinnedGlossary] = useState<GlossaryTerm[]>([]);
   const [qaReports, setQaReports] = useState<QaReport[]>([]);
   const [usedOcr, setUsedOcr] = useState(false);
   const [extractionProgress, setExtractionProgress] = useState({
@@ -159,7 +161,10 @@ export default function Home() {
           "Content-Type": "application/json",
           ...(encodeSettings(settings) ? { "X-Provider-Config": encodeSettings(settings)! } : {}),
         },
-        body: JSON.stringify({ text: sourceText }),
+        body: JSON.stringify({
+          text: sourceText,
+          pinnedGlossary: pinnedGlossary.filter((t) => t.english.trim() && t.thai.trim()),
+        }),
         signal: controller.signal,
       });
       if (!res.ok || !res.body) {
@@ -218,7 +223,7 @@ export default function Home() {
     } finally {
       abortRef.current = null;
     }
-  }, [sourceText, settings]);
+  }, [sourceText, settings, pinnedGlossary]);
 
   return (
     <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-10 sm:px-6">
@@ -265,16 +270,19 @@ export default function Home() {
         )}
 
         {step === "review" && (
+          <>
+            <GlossaryEditor value={pinnedGlossary} onChange={setPinnedGlossary} />
             <TextPreview
-            text={sourceText}
-            filename={filename}
-            images={capturedImages}
-            imageWarning={imageWarning}
-            onChange={setSourceText}
-            onTranslate={translate}
+              text={sourceText}
+              filename={filename}
+              images={capturedImages}
+              imageWarning={imageWarning}
+              onChange={setSourceText}
+              onTranslate={translate}
               onBack={reset}
               usedOcr={usedOcr}
-          />
+            />
+          </>
         )}
 
         {(step === "translating" || step === "done") && (

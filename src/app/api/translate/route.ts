@@ -11,8 +11,22 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 const MAX_INPUT_CHARS = 400_000;
 const MAX_TRANSLATE_BODY_BYTES = 2_000_000;
+const MAX_PINNED_GLOSSARY_TERMS = 100;
 
 type SseEvent = { type: "progress" | "stage" | "delta" | "replace_chunk" | "qa" | "done" | "error"; [key: string]: unknown };
+
+/** User-pinned terms, keyed like glossary.ts's auto-extracted entries so they merge into the same map. */
+function parsePinnedGlossary(body: unknown): Map<string, string> {
+  const glossary = new Map<string, string>();
+  const items = (body as { pinnedGlossary?: unknown })?.pinnedGlossary;
+  if (!Array.isArray(items)) return glossary;
+  for (const item of items.slice(0, MAX_PINNED_GLOSSARY_TERMS)) {
+    const english = typeof (item as { english?: unknown })?.english === "string" ? (item as { english: string }).english.trim() : "";
+    const thai = typeof (item as { thai?: unknown })?.thai === "string" ? (item as { thai: string }).thai.trim() : "";
+    if (english && thai) glossary.set(english.toLowerCase(), thai);
+  }
+  return glossary;
+}
 
 export async function POST(request: Request) {
   const ip = requestIp(request);
@@ -24,8 +38,12 @@ export async function POST(request: Request) {
     return Response.json({ error: "Translation request is too large." }, { status: 413 });
   }
   let text = "";
-  try { const body = await request.json(); text = typeof body?.text === "string" ? body.text.trim() : ""; }
-  catch { return Response.json({ error: "Invalid request body." }, { status: 400 }); }
+  let pinnedGlossary = new Map<string, string>();
+  try {
+    const body = await request.json();
+    text = typeof body?.text === "string" ? body.text.trim() : "";
+    pinnedGlossary = parsePinnedGlossary(body);
+  } catch { return Response.json({ error: "Invalid request body." }, { status: 400 }); }
   if (!text) return Response.json({ error: "No text to translate." }, { status: 400 });
   if (text.length > MAX_INPUT_CHARS) return Response.json({ error: "The document is too long." }, { status: 413 });
 
@@ -39,7 +57,9 @@ export async function POST(request: Request) {
     async start(controller) {
       const send = (event: SseEvent) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
       try {
-        const glossary = new Map<string, string>();
+        // Seeded first so extractGlossaryTerms's "only add if absent" rule
+        // (glossary.ts) keeps pinned translations from being overwritten.
+        const glossary = new Map(pinnedGlossary);
         for (let i = 0; i < chunks.length; i++) {
           send({ type: "progress", chunk: i + 1, total: chunks.length });
           send({ type: "stage", stage: "draft", chunk: i + 1 });
