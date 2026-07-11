@@ -70,6 +70,20 @@ By default, OpenAI-compatible and Ollama URLs must resolve exclusively to public
 - `ALLOW_PRIVATE_UPSTREAMS=true` intentionally permits private, loopback, link-local, and Compose-internal upstreams. Never enable it on an untrusted public deployment.
 - Caddy overwrites forwarding headers in the recommended topology, making the first `X-Forwarded-For` address suitable for this deployment's rate-limit key.
 
+## Testing
+
+Unit tests cover the security- and logic-critical pure modules (SSRF host classification, rate limiting, chunking, QA checks, glossary extraction):
+
+```bash
+npm test
+```
+
+An end-to-end smoke test builds the standalone bundle, boots it, and drives upload → extract → translate (against a local stub provider, no real API key needed) → export over HTTP:
+
+```bash
+npm run test:smoke
+```
+
 ## Deployment
 
 See [DEPLOY.md](./DEPLOY.md) for Docker Compose, Caddy, automatic HTTPS, basic authentication, firewall configuration, and update instructions.

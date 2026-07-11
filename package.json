@@ -8,7 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "package:standalone": "npm run build && node scripts/package-standalone.mjs",
-    "mcp": "node scripts/mcp-server.mjs"
+    "mcp": "node scripts/mcp-server.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:smoke": "npm run package:standalone && node scripts/smoke-test.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
@@ -33,7 +36,9 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "^4.1.10"
   },
   "overrides": {
     "next": {
