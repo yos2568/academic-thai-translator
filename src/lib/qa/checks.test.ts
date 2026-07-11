@@ -13,7 +13,14 @@ describe("checkTranslation", () => {
     const target = "ความแม่นยำถึง 87.4% (Smith, 2020) โปรดดู https://example.com/paper สำหรับรายละเอียด";
     const report = checkTranslation(source, target, 1);
     expect(report.passed).toBe(true);
-    for (const check of report.checks) expect(check.status).toBe("pass");
+    for (const check of report.checks) {
+      expect(check.status).toBe("pass");
+      expect(check.found).toBe(check.expected);
+    }
+    // "2020" inside the citation is also a distinct match for the numbers check.
+    expect(checkFor(report, "numbers").expected).toBe(2);
+    expect(checkFor(report, "citations").expected).toBe(1);
+    expect(checkFor(report, "urls").expected).toBe(1);
   });
 
   it("flags a dropped number", () => {
@@ -57,5 +64,42 @@ describe("checkTranslation", () => {
     const report = checkTranslation(source, target, 6);
     const numbers = checkFor(report, "numbers");
     expect(numbers.missing).toEqual(["2020"]);
+  });
+
+  it("does not flag a number rendered as Thai numerals in the target", () => {
+    const source = "The study was conducted in 2024 using survey methods.";
+    const target = "การศึกษานี้ดำเนินการในปี ๒๐๒๔ โดยใช้แบบสำรวจ";
+    const report = checkTranslation(source, target, 7);
+    const numbers = checkFor(report, "numbers");
+    expect(numbers.status).toBe("pass");
+    expect(numbers.missing).toEqual([]);
+    expect(numbers.found).toBe(1);
+  });
+
+  it("does not flag a number whose thousands separators were dropped in the target", () => {
+    const source = "The city has 1,000,000 residents.";
+    const target = "เมืองนี้มีประชากร 1000000 คน";
+    const report = checkTranslation(source, target, 8);
+    const numbers = checkFor(report, "numbers");
+    expect(numbers.status).toBe("pass");
+  });
+
+  it("does not flag a number with both Thai numerals and no thousands separator", () => {
+    const source = "The city has 10,000 residents.";
+    const target = "เมืองนี้มีประชากร ๑๐๐๐๐ คน";
+    const report = checkTranslation(source, target, 9);
+    const numbers = checkFor(report, "numbers");
+    expect(numbers.status).toBe("pass");
+  });
+
+  it("still flags a genuinely dropped number even with normalization applied", () => {
+    const source = "Enrollment was 2024 students.";
+    const target = "มีนักเรียนลงทะเบียนจำนวนมาก";
+    const report = checkTranslation(source, target, 10);
+    const numbers = checkFor(report, "numbers");
+    expect(numbers.status).toBe("warn");
+    expect(numbers.missing).toEqual(["2024"]);
+    expect(numbers.found).toBe(0);
+    expect(numbers.expected).toBe(1);
   });
 });
