@@ -57,7 +57,7 @@ export default function ExportBar({
         <h2 className="text-base font-semibold text-slate-800">
           Export your translation
         </h2>
-        <p className="mt-0.5 text-sm text-slate-400">
+        <p className="mt-0.5 text-sm text-slate-500">
           Download as a Word document{images.length > 0 ? " with captured images" : ""} or plain text file.
         </p>
       </div>

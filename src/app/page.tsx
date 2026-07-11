@@ -299,7 +299,7 @@ export default function Home() {
         )}
       </main>
 
-      <footer className="mt-12 text-center text-xs text-slate-400">
+      <footer className="mt-12 text-center text-xs text-slate-500">
         Files are processed in memory and never stored on the server.
       </footer>
     </div>

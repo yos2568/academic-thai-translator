@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export type ClientProvider =
   | { provider: "anthropic"; apiKey: string; model: string }
@@ -22,6 +25,43 @@ export default function SettingsPanel({ value, onChange }: { value: SavedSetting
   const [postEditEnabled, setPostEditEnabled] = useState(false);
   const [postedit, setPostedit] = useState<ClientProvider>({ provider: "anthropic", apiKey: "", model: "claude-sonnet-4-5" });
   const [status, setStatus] = useState("");
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  // Focus trap + Escape-to-close + focus-return, scoped to when the dialog is open.
+  useEffect(() => {
+    if (!open) return;
+    const dialog = dialogRef.current;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const focusables = () => Array.from(dialog?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR) ?? []);
+    focusables()[0]?.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = focusables();
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      (previouslyFocused ?? triggerRef.current)?.focus();
+    };
+  }, [open]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -75,10 +115,10 @@ export default function SettingsPanel({ value, onChange }: { value: SavedSetting
   );
 
   return <>
-    <button onClick={() => setOpen(true)} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 shadow-sm hover:bg-slate-50">⚙ Settings{value ? " · BYOK" : ""}</button>
-    {open && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" role="dialog" aria-modal="true">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
-        <div className="flex items-start justify-between"><div><h2 className="text-lg font-bold text-slate-900">Translation settings</h2><p className="mt-1 text-sm text-slate-500">Keys stay in this browser and are sent only with translation requests.</p></div><button onClick={() => setOpen(false)} aria-label="Close">✕</button></div>
+    <button ref={triggerRef} onClick={() => setOpen(true)} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 shadow-sm hover:bg-slate-50">⚙ Settings{value ? " · BYOK" : ""}</button>
+    {open && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" role="dialog" aria-modal="true" aria-labelledby="settings-panel-title">
+      <div ref={dialogRef} className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+        <div className="flex items-start justify-between"><div><h2 id="settings-panel-title" className="text-lg font-bold text-slate-900">Translation settings</h2><p className="mt-1 text-sm text-slate-500">Keys stay in this browser and are sent only with translation requests.</p></div><button onClick={() => setOpen(false)} aria-label="Close">✕</button></div>
         <section className="mt-6"><h3 className="mb-3 text-sm font-semibold">Draft translation</h3>{form(draft, setDraft)}</section>
         <section className="mt-6 border-t border-slate-100 pt-5"><label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={postEditEnabled} onChange={(e) => setPostEditEnabled(e.target.checked)} /> Polish into academic Thai</label>{postEditEnabled && <div className="mt-4">{form(postedit, setPostedit)}</div>}</section>
         {status && <p className="mt-4 text-sm text-blue-700">{status}</p>}
