@@ -56,14 +56,71 @@ export async function POST(request: Request) {
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const send = (event: SseEvent) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+
+      // Fetches one chunk's draft. In "live" mode (only ever the very first
+      // chunk, which has nothing to overlap with) deltas stream straight to
+      // the client as they arrive, exactly like the old sequential code. In
+      // background mode (every later chunk, prefetched while the previous
+      // chunk's post-edit/QA is still running) deltas are buffered and
+      // replayed as a burst once emission reaches that chunk's turn, so the
+      // SSE event *order* stays strictly per-chunk-sequential even though
+      // the underlying network calls overlap.
+      const draftChunk = async (index: number, glossaryText: string, live: boolean) => {
+        const deltas: string[] = [];
+        const draft = await translateChunk({
+          chunk: chunks[index],
+          chunkIndex: index,
+          totalChunks: chunks.length,
+          glossary: glossaryText,
+          config: config.draft,
+          onDelta: (delta) => {
+            if (live) send({ type: "delta", text: delta, chunk: index + 1 });
+            else deltas.push(delta);
+          },
+        });
+        return { draft, deltas };
+      };
+
       try {
         // Seeded first so extractGlossaryTerms's "only add if absent" rule
         // (glossary.ts) keeps pinned translations from being overwritten.
         const glossary = new Map(pinnedGlossary);
+        let pending: ReturnType<typeof draftChunk> | null = null;
+
         for (let i = 0; i < chunks.length; i++) {
           send({ type: "progress", chunk: i + 1, total: chunks.length });
           send({ type: "stage", stage: "draft", chunk: i + 1 });
-          const draft = await translateChunk({ chunk: chunks[i], chunkIndex: i, totalChunks: chunks.length, glossary: formatGlossary(glossary), config: config.draft, onDelta: (delta) => send({ type: "delta", text: delta, chunk: i + 1 }) });
+
+          let draft: string;
+          if (pending) {
+            const result = await pending;
+            draft = result.draft;
+            for (const delta of result.deltas) send({ type: "delta", text: delta, chunk: i + 1 });
+          } else {
+            draft = (await draftChunk(i, formatGlossary(glossary), true)).draft;
+          }
+
+          // Harvest glossary terms visible in the raw draft now (the
+          // translation prompt already asks for "term (English)" on first
+          // occurrence), before kicking off the next chunk's draft. This is
+          // what makes the overlap possible: the next draft only waits on
+          // this chunk's draft output, not on this chunk's full post-edit +
+          // QA pass. Consequence: chunk i+1's draft will not see any term
+          // that only emerges during chunk i's post-edit polish — it only
+          // sees terms from chunk i's raw draft plus all earlier chunks'
+          // fully-extracted glossaries. extractGlossaryTerms never
+          // overwrites an existing key, so this ordering never lets an
+          // auto-extracted term clobber a pinned one.
+          extractGlossaryTerms(draft, glossary);
+
+          if (i + 1 < chunks.length) {
+            const next = draftChunk(i + 1, formatGlossary(glossary), false);
+            next.catch(() => {}); // swallow here; a real failure still surfaces via the `await pending` above (or the throw below stops the loop first)
+            pending = next;
+          } else {
+            pending = null;
+          }
+
           let final = draft;
           if (config.postedit) {
             send({ type: "stage", stage: "postedit", chunk: i + 1 });
