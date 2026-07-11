@@ -1,36 +1,88 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Academic Thai Translator
 
-## Getting Started
+A Next.js 16 application for translating English academic documents into formal Thai. It accepts `.docx`, `.pdf`, `.txt`, `.png`, and `.jpg`, supports OCR, configurable translation and post-edit providers, deterministic QA, and `.docx`/`.txt` export.
 
-First, run the development server:
+## Features
+
+- Multi-provider BYOK: Anthropic, OpenAI-compatible APIs, or Ollama
+- Optional academic-register post-editing with a separately selected provider
+- Browser-streamed progress and deterministic preservation checks for numbers, citations, and URLs
+- Signature-validated uploads capped at 10 MB
+- Tesseract Thai/English OCR with a 40-page and 120-second process ceiling
+- Private-network SSRF protection for user-supplied upstream URLs
+- Per-route request throttling, request-body limits, security headers, and URL-redacted errors
+- No server-side document or browser-key persistence
+
+## Local prerequisites
+
+Node.js 22 is recommended.
+
+macOS:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+brew install tesseract tesseract-lang poppler
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Debian or Ubuntu:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+sudo apt update
+sudo apt install tesseract-ocr tesseract-ocr-tha tesseract-ocr-eng poppler-utils
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Local setup
 
-## Learn More
+```bash
+npm ci
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Open [http://localhost:3000](http://localhost:3000).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+For a production-like local run:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run build
+npm start
+```
 
-## Deploy on Vercel
+All environment variables are optional:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```dotenv
+# Optional server-side fallback; with neither value the app remains BYOK-only.
+ANTHROPIC_API_KEY=
+ANTHROPIC_MODEL=claude-sonnet-4-5
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# Required for local Ollama or any private-network upstream.
+ALLOW_PRIVATE_UPSTREAMS=true
+```
+
+BYOK credentials are stored in the user's browser local storage and sent to this application's route handler only for provider tests and translations. They are never written to server disk or echoed by the API. Use BYOK only over HTTPS on a deployment you trust.
+
+By default, OpenAI-compatible and Ollama URLs must resolve exclusively to public IP addresses. `ALLOW_PRIVATE_UPSTREAMS=true` disables this SSRF control for trusted local deployments.
+
+## Security model
+
+- Caddy provides TLS and team-only HTTP basic authentication in the recommended VPS setup.
+- Upload type and size are verified using extensions and magic bytes.
+- Translation, extraction, and provider-test routes use namespaced, per-IP in-memory rate limits. For multi-instance scaling, replace this with a shared store such as Redis.
+- User-configured upstream hostnames are resolved and every returned IP is checked before connecting. Upstream redirects are rejected so a public URL cannot redirect the server to a private target. A residual DNS-rebinding/time-of-check-to-time-of-use risk remains because the subsequent HTTP client performs its own DNS resolution. This is accepted for the intended password-gated team deployment; a public multi-tenant service should pin resolved addresses or use an egress proxy.
+- `ALLOW_PRIVATE_UPSTREAMS=true` intentionally permits private, loopback, link-local, and Compose-internal upstreams. Never enable it on an untrusted public deployment.
+- Caddy overwrites forwarding headers in the recommended topology, making the first `X-Forwarded-For` address suitable for this deployment's rate-limit key.
+
+## Deployment
+
+See [DEPLOY.md](./DEPLOY.md) for Docker Compose, Caddy, automatic HTTPS, basic authentication, firewall configuration, and update instructions.
+
+## Standalone package and MCP
+
+See [PACKAGE.md](./PACKAGE.md) to build a movable standalone app folder and expose the translator as an MCP server for Claude Code, Zed/Z code, Hermes Agent, and similar clients.
+
+## Architecture
+
+```text
+Browser → Caddy (TLS + basic auth) → Next.js route handlers
+  upload → validation → parser/OCR → review
+  chunks → draft provider → optional post-editor → deterministic QA
+  final Thai → DOCX/TXT export
+```

@@ -1,0 +1,35 @@
+services:
+  app:
+    build: .
+    env_file: .env
+    restart: unless-stopped
+    mem_limit: 1g
+
+  caddy:
+    image: caddy:2
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    env_file: .env
+    restart: unless-stopped
+
+  # Optional local model service. To enable it:
+  # 1. Uncomment this service and the ollama_models volume below.
+  # 2. Set ALLOW_PRIVATE_UPSTREAMS=true in .env.
+  # 3. Use http://ollama:11434 as the Ollama base URL in Settings.
+  # ollama:
+  #   image: ollama/ollama
+  #   volumes:
+  #     - ollama_models:/root/.ollama
+  #   restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
+  # ollama_models:
