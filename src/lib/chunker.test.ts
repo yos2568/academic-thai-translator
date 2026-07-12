@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { chunkText } from "./chunker";
 
-const MAX_CHUNK_CHARS = 12_000;
+const MAX_CHUNK_CHARS = 24_000;
 
 describe("chunkText", () => {
   it("keeps a short document as a single chunk", () => {
@@ -21,7 +21,7 @@ describe("chunkText", () => {
   });
 
   it("flushes into a new chunk once the running total would exceed the limit", () => {
-    const paragraph = "x".repeat(7000);
+    const paragraph = "x".repeat(14_000);
     const text = [paragraph, paragraph, paragraph].join("\n\n");
     const chunks = chunkText(text);
     expect(chunks.length).toBeGreaterThan(1);
@@ -32,7 +32,7 @@ describe("chunkText", () => {
 
   it("splits a single oversized paragraph on sentence boundaries", () => {
     const sentence = "This is a reasonably long sentence for testing purposes.";
-    const paragraph = Array.from({ length: 400 }, () => sentence).join(" "); // > 12,000 chars
+    const paragraph = Array.from({ length: 800 }, () => sentence).join(" "); // > 24,000 chars
     expect(paragraph.length).toBeGreaterThan(MAX_CHUNK_CHARS);
 
     const chunks = chunkText(paragraph);

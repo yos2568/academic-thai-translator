@@ -7,7 +7,8 @@ import { promisify } from "node:util";
 
 const run = promisify(execFile);
 const OCR_PROCESS_TIMEOUT_MS = 45_000;
-const OCR_CONCURRENCY = 4;
+/** Higher concurrency for multi-page scanned handbooks (big speed win). */
+const OCR_CONCURRENCY = 6;
 
 async function recognize(path: string, signal?: AbortSignal): Promise<string> {
   const { stdout } = await run("tesseract", [path, "stdout", "-l", "tha+eng", "--psm", "3"], {
@@ -46,7 +47,8 @@ export async function ocrPdf(
     const prefix = join(dir, "page");
     await writeFile(input, buffer);
     onProgress?.(28, "Rendering scanned PDF pages for OCR…");
-    await run("pdftoppm", ["-f", "1", "-l", "40", "-jpeg", "-r", "250", input, prefix], {
+    // 200 DPI is enough for clean print scans and is much faster than 250.
+    await run("pdftoppm", ["-f", "1", "-l", "40", "-jpeg", "-r", "200", input, prefix], {
       maxBuffer: 10 * 1024 * 1024,
       timeout: 120_000,
       signal,

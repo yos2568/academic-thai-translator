@@ -1,17 +1,32 @@
-# Academic Thai Translator
+# Academic Thai Translator v2
 
-A Next.js 16 application for translating English academic documents into formal Thai. It accepts `.docx`, `.pdf`, `.txt`, `.png`, and `.jpg`, supports OCR, configurable translation and post-edit providers, deterministic QA, and `.docx`/`.txt` export.
+Next.js app that turns English academic sources into **publishable Thai textbook** material:
+
+1. **Extract** text + figures from `.pdf`, `.docx`, `.txt`, `.png`, `.jpg` (OCR for scans)
+2. **Translate** with **Grok OAuth** (SuperGrok / X Premium+) — or an xAI API key
+3. **Polish** into formal academic Thai (ภาษาไทยเชิงวิชาการ)
+4. **QA** numbers, citations, URLs
+5. **Export** textbook-ready `.docx` (TH SarabunPSK, thesis margins, headings, captions, page numbers)
+
+## What’s new in v2
+
+| Area | v1 | v2 |
+|---|---|---|
+| Default AI | Anthropic / generic BYOK | **Grok OAuth** + academic post-edit |
+| Auth | API keys only | Device-code **Sign in with Grok**, API key, optional `~/.grok/auth.json` import |
+| Export | Flat paragraphs | Structured textbook layout (title, H1–H3, lists, captions, footer page #) |
+| Meta | Filename only | Title / author / subject fields |
+| Models | Claude-centric | Default `grok-4.5` |
 
 ## Features
 
-- Multi-provider BYOK: Anthropic, OpenAI-compatible APIs, or Ollama
-- Optional academic-register post-editing with a separately selected provider
-- Browser-streamed progress and deterministic preservation checks for numbers, citations, and URLs
-- Signature-validated uploads capped at 50 MB
-- Tesseract Thai/English OCR with a 40-page and 120-second process ceiling
-- Private-network SSRF protection for user-supplied upstream URLs
-- Per-route request throttling, request-body limits, security headers, and URL-redacted errors
-- No server-side document or browser-key persistence
+- **Grok OAuth** for the whole translate → post-edit pipeline (browser device-code flow)
+- Extract text **and images** from PDF/DOCX; re-embed figures in the Thai export
+- Optional academic post-editing (on by default when you sign in with Grok)
+- Deterministic QA for numbers, citations, and URLs
+- Multi-provider fallback still available: xAI API key, Anthropic, OpenAI-compatible, Ollama
+- Signature-validated uploads (50 MB cap), OCR ceilings, SSRF guards, rate limits
+- No server-side document persistence; OAuth tokens stay in the browser (BYOK)
 
 ## Local prerequisites
 
@@ -23,7 +38,7 @@ macOS:
 brew install tesseract tesseract-lang poppler
 ```
 
-Debian or Ubuntu:
+Debian / Ubuntu:
 
 ```bash
 sudo apt update
@@ -39,74 +54,97 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-For a production-like local run:
+1. Click **Settings**
+2. **Sign in with Grok** (opens auth.x.ai device login — SuperGrok or X Premium+)
+3. Upload a PDF / DOCX / TXT
+4. Review text → Translate → Export **textbook .docx**
+
+### Optional: use your existing Grok CLI session
+
+If you already ran `grok login` on this machine:
 
 ```bash
-npm run build
-npm start
+# .env.local
+ALLOW_GROK_AUTH_IMPORT=true
 ```
 
-All environment variables are optional:
+Then in Settings → **Import local Grok CLI**.
+
+### Optional: xAI API key (no OAuth)
 
 ```dotenv
-# Optional server-side fallback; with neither value the app remains BYOK-only.
-ANTHROPIC_API_KEY=
-ANTHROPIC_MODEL=claude-sonnet-4-5
-
-# Required for local Ollama or any private-network upstream.
-ALLOW_PRIVATE_UPSTREAMS=true
+XAI_API_KEY=xai-...
+XAI_MODEL=grok-4.5
 ```
 
-BYOK credentials are stored in the user's browser local storage and sent to this application's route handler only for provider tests and translations. They are never written to server disk or echoed by the API. Use BYOK only over HTTPS on a deployment you trust.
+Or paste the key under Settings → provider **xAI API key**.
 
-By default, OpenAI-compatible and Ollama URLs must resolve exclusively to public IP addresses. `ALLOW_PRIVATE_UPSTREAMS=true` disables this SSRF control for trusted local deployments.
+## Environment variables
+
+See [`.env.example`](./.env.example). Highlights:
+
+| Variable | Purpose |
+|---|---|
+| `XAI_API_KEY` | Server-side Grok API key fallback |
+| `XAI_MODEL` / `XAI_POSTEDIT_MODEL` | Default models (`grok-4.5`) |
+| `XAI_OAUTH_REFRESH_TOKEN` | Server-side OAuth (single-user) |
+| `ALLOW_GROK_AUTH_IMPORT` | Read `~/.grok/auth.json` (trusted host only) |
+| `ALLOW_PRIVATE_UPSTREAMS` | Allow Ollama / private OpenAI-compatible URLs |
+| `ANTHROPIC_API_KEY` | Legacy Claude fallback |
+
+BYOK credentials (including Grok OAuth tokens) are stored in **browser localStorage** and sent only on translation requests. Use HTTPS on any shared deployment.
+
+## Pipeline
+
+```
+Browser → Next.js
+  upload → validate → parse / OCR → capture images
+  chunks → Grok draft → Grok academic post-edit → QA
+  structured Thai → textbook DOCX / TXT
+```
 
 ## Security model
 
-- Caddy provides TLS and team-only HTTP basic authentication in the recommended VPS setup.
-- Upload type and size are verified using extensions and magic bytes.
-- Translation, extraction, and provider-test routes use namespaced, per-IP rate limits backed by `RateLimitStore` (`src/lib/ratelimit.ts`). The default `MemoryRateLimitStore` is process-local. For multi-instance scaling, implement `RateLimitStore` against shared state (e.g. Redis) and call `setRateLimitStore()` once at startup — no route handler needs to change.
-- User-configured upstream hostnames are resolved and every returned IP is checked before connecting. Upstream redirects are rejected so a public URL cannot redirect the server to a private target. A residual DNS-rebinding/time-of-check-to-time-of-use risk remains because the subsequent HTTP client performs its own DNS resolution. This is accepted for the intended password-gated team deployment; a public multi-tenant service should pin resolved addresses or use an egress proxy.
-- `ALLOW_PRIVATE_UPSTREAMS=true` intentionally permits private, loopback, link-local, and Compose-internal upstreams. Never enable it on an untrusted public deployment.
-- Caddy overwrites forwarding headers in the recommended topology, making the first `X-Forwarded-For` address suitable for this deployment's rate-limit key.
+- Upload type/size verified via extension + magic bytes
+- Rate limits on extract / translate / auth / engine test routes
+- User-configured upstream URLs are SSRF-checked (`ALLOW_PRIVATE_UPSTREAMS` only for trusted local)
+- Grok OAuth uses xAI’s public device-code grant (`auth.x.ai`); refresh tokens are never logged
+- `ALLOW_GROK_AUTH_IMPORT=true` must not be enabled on multi-tenant public hosts
+
+If OAuth login works but inference returns **HTTP 403**, your SuperGrok tier may not include API access — use `XAI_API_KEY` from [console.x.ai](https://console.x.ai) instead.
 
 ## Testing
 
-Unit tests cover the security- and logic-critical pure modules (SSRF host classification, rate limiting, chunking, QA checks, glossary extraction):
-
 ```bash
 npm test
-```
-
-An end-to-end smoke test builds the standalone bundle, boots it, and drives upload → extract → translate (against a local stub provider, no real API key needed) → export over HTTP:
-
-```bash
+npm run build
+# optional end-to-end (stub provider, no real key):
 npm run test:smoke
 ```
 
-## Benchmarking engines
-
-To compare draft/post-edit provider configurations on the same document (latency and QA pass rate), copy `benchmark-providers.example.json` to `benchmark-providers.json`, fill in real credentials, start the app, then run:
-
-```bash
-npm run benchmark
-```
-
-Pass a different fixture or providers file as arguments: `node scripts/benchmark-engines.mjs path/to/doc.txt path/to/providers.json`. Set `TRANSLATOR_APP_URL` if the app isn't at `http://127.0.0.1:3000`.
-
 ## Deployment
 
-See [DEPLOY.md](./DEPLOY.md) for Docker Compose, Caddy, automatic HTTPS, basic authentication, firewall configuration, and update instructions.
+See [DEPLOY.md](./DEPLOY.md) for Docker Compose + Caddy.
+
+For Grok on a private VPS, either:
+
+- Users sign in with Grok in the browser (recommended), or
+- Set `XAI_API_KEY` / `XAI_OAUTH_REFRESH_TOKEN` in the container env
 
 ## Standalone package and MCP
 
-See [PACKAGE.md](./PACKAGE.md) to build a movable standalone app folder and expose the translator as an MCP server for Claude Code, Zed/Z code, Hermes Agent, and similar clients.
+See [PACKAGE.md](./PACKAGE.md).
 
-## Architecture
+## Architecture notes (v2)
 
-```text
-Browser → Caddy (TLS + basic auth) → Next.js route handlers
-  upload → validation → parser/OCR → review
-  chunks → draft provider → optional post-editor → deterministic QA
-  final Thai → DOCX/TXT export
-```
+| Module | Role |
+|---|---|
+| `src/lib/xai/oauth.ts` | Device code + refresh against auth.x.ai |
+| `src/lib/engines/xai.ts` | `xai` + `xai-oauth` engines → `api.x.ai/v1/chat/completions` |
+| `src/app/api/auth/xai/*` | Start / poll device login; optional CLI import |
+| `src/lib/structure.ts` | Heading / list / caption detection for DOCX |
+| `src/lib/exporter.ts` | Thai textbook Word layout |
+
+## License / origin
+
+App that extracts text (and images) from documents and translates them into academic Thai for textbook publishing.

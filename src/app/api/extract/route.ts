@@ -4,6 +4,7 @@ import { chunkText } from "@/lib/chunker";
 import { validateUpload, ValidationError, MAX_FILE_SIZE } from "@/lib/validation";
 import { allowRequest, requestIp } from "@/lib/ratelimit";
 import { captureDocumentImages, type CapturedDocumentImage } from "@/lib/document-images";
+import { injectImageMarkers } from "@/lib/image-markers";
 
 export const runtime = "nodejs";
 export const maxDuration = 240;
@@ -73,13 +74,16 @@ async function processUpload(
     signal,
     onProgress
   );
-  const { text, ocr } = extraction;
-  onProgress(92, "Capturing images from the original document…");
+  const { text: rawText, ocr } = extraction;
+  onProgress(92, "Capturing figures from the original document…");
   const imageCapture = await captureDocumentImages(type, buffer, signal, {
     pageCount: extraction.pageCount,
     pageParagraphCounts: extraction.pageParagraphCounts,
-    totalParagraphs: text.split(/\n{2,}/).filter(Boolean).length,
+    totalParagraphs: rawText.split(/\n{2,}/).filter(Boolean).length,
+    ocr,
   });
+  // Embed [[IMG:id]] markers so figures stay aligned after translation.
+  const text = injectImageMarkers(rawText, imageCapture.images, extraction.pageParagraphCounts);
   onProgress(96, "Preparing document preview…");
   const chunks = chunkText(text);
 

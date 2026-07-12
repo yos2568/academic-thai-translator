@@ -2,6 +2,7 @@ import "server-only";
 import mammoth from "mammoth";
 import { ValidationError, type SupportedType } from "./validation";
 import { ocrImage, ocrPdf } from "./ocr/tesseract";
+import { cleanupExtractedText } from "./ocr-cleanup";
 
 export interface ExtractionMetadata {
   pageCount?: number;
@@ -10,14 +11,7 @@ export interface ExtractionMetadata {
 
 /** Collapse odd whitespace but preserve paragraph structure. */
 function normalizeText(raw: string): string {
-  return raw
-    .replace(/\r\n?/g, "\n")
-    // strip control characters except newline/tab
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
-    .replace(/[ \t]+/g, " ")
-    .replace(/ ?\n ?/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+  return cleanupExtractedText(raw);
 }
 
 async function extractDocx(buffer: Buffer): Promise<string> {

@@ -5,6 +5,7 @@ import { anthropicEngine } from "./anthropic";
 import { openAiCompatibleEngine } from "./openai-compatible";
 import { ollamaEngine } from "./ollama";
 import { oauthOpenAiCompatibleEngine } from "./oauth-openai-compatible";
+import { xaiEngine, xaiOauthEngine } from "./xai";
 
 type EngineMap = { [K in ProviderConfig["provider"]]: TranslationEngine<Extract<ProviderConfig, { provider: K }>> };
 
@@ -13,6 +14,8 @@ const engines: EngineMap = {
   "openai-compatible": openAiCompatibleEngine,
   ollama: ollamaEngine,
   "oauth-openai-compatible": oauthOpenAiCompatibleEngine,
+  xai: xaiEngine,
+  "xai-oauth": xaiOauthEngine,
 };
 
 export function engineFor<C extends ProviderConfig>(config: C): TranslationEngine<C> {

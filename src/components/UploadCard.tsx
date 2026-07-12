@@ -5,6 +5,13 @@ import { useDropzone, type FileRejection } from "react-dropzone";
 
 const MAX_SIZE = 50 * 1024 * 1024;
 const MAX_SIZE_LABEL = `${MAX_SIZE / (1024 * 1024)} MB`;
+const ACCEPT = {
+  "application/pdf": [".pdf"],
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
+  "text/plain": [".txt"],
+  "image/png": [".png"],
+  "image/jpeg": [".jpg", ".jpeg"],
+} as const;
 
 interface UploadCardProps {
   onFile: (file: File) => void;
@@ -37,30 +44,23 @@ export default function UploadCard({
     [onFile, onError]
   );
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
     onDrop,
     multiple: false,
     maxSize: MAX_SIZE,
     disabled: busy,
-    accept: {
-      "application/pdf": [".pdf"],
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-        [".docx"],
-      "text/plain": [".txt"],
-      "image/png": [".png"],
-      "image/jpeg": [".jpg", ".jpeg"],
-    },
+    noClick: true, // use explicit button so clicks always work
+    noKeyboard: true,
+    accept: ACCEPT,
   });
 
   return (
     <div
       {...getRootProps()}
       className={
-        "cursor-pointer rounded-2xl border-2 border-dashed bg-white p-12 text-center shadow-sm transition-colors " +
-        (isDragActive
-          ? "border-blue-500 bg-blue-50"
-          : "border-slate-300 hover:border-blue-400") +
-        (busy ? " cursor-default opacity-70" : "")
+        "rounded-2xl border-2 border-dashed bg-white p-12 text-center shadow-sm transition-colors " +
+        (isDragActive ? "border-blue-500 bg-blue-50" : "border-slate-300 hover:border-blue-400") +
+        (busy ? " opacity-70" : "")
       }
     >
       <input {...getInputProps()} />
@@ -85,13 +85,28 @@ export default function UploadCard({
           ? progress.message
           : isDragActive
             ? "Drop your document here"
-            : "Drag & drop your English document, or click to browse"}
+            : "Drag & drop your English document"}
       </p>
       <p className="mt-2 text-sm text-slate-500">
         {busy
           ? "Scanned PDFs use OCR and may take a few minutes."
           : `Supported formats — max ${MAX_SIZE_LABEL}`}
       </p>
+
+      {!busy && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            open();
+          }}
+          className="mt-5 rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+        >
+          Choose file
+        </button>
+      )}
+
       {busy && (
         <div className="mx-auto mt-5 max-w-md">
           <div className="mb-2 flex items-center justify-between text-xs font-semibold text-slate-500">
@@ -117,6 +132,7 @@ export default function UploadCard({
         <button
           type="button"
           onClick={(event) => {
+            event.preventDefault();
             event.stopPropagation();
             onCancel();
           }}

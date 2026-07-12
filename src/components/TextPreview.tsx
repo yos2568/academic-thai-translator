@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import type { CapturedDocumentImage } from "@/lib/document-images";
+import type { CapturedDocumentImage } from "@/lib/document-image-types";
 
 interface TextPreviewProps {
   text: string;

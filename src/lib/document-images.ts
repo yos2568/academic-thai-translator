@@ -7,37 +7,33 @@ import { promisify } from "node:util";
 import JSZip from "jszip";
 import type { SupportedType } from "./validation";
 import { clamp, hasMagicBytes } from "./util";
+import type { CapturedDocumentImage, CapturedImageType } from "./document-image-types";
+
+export type { CapturedDocumentImage, CapturedImageType } from "./document-image-types";
 
 const run = promisify(execFile);
-const MAX_CAPTURED_IMAGES = 24;
+const MAX_CAPTURED_IMAGES = 40;
 const MAX_SINGLE_IMAGE_BYTES = 2_500_000;
-const MAX_TOTAL_IMAGE_BYTES = 8_000_000;
-
-export type CapturedImageType = "png" | "jpg" | "gif" | "bmp";
-
-export interface CapturedDocumentImage {
-  id: string;
-  filename: string;
-  type: CapturedImageType;
-  data: string;
-  bytes: number;
-  source: "docx" | "pdf" | "upload";
-  page?: number;
-  anchorParagraphIndex?: number;
-  anchorRatio?: number;
-  width?: number;
-  height?: number;
-}
+const MAX_TOTAL_IMAGE_BYTES = 12_000_000;
+/** Full-page scan threshold (px). Scanned PDFs embed entire pages as huge rasters. */
+const FULL_PAGE_MIN_EDGE = 1200;
+const FULL_PAGE_MIN_PIXELS = 1_200_000;
+/** Decorative crumbs / soft-mask stubs. */
+const MIN_FIGURE_PIXELS = 12_000;
+const MIN_FIGURE_BYTES = 8_000;
 
 export interface ImageCaptureResult {
   images: CapturedDocumentImage[];
   warning?: string;
+  skippedFullPageScans?: number;
 }
 
 export interface ImageCaptureContext {
   pageCount?: number;
   pageParagraphCounts?: number[];
   totalParagraphs?: number;
+  /** When true, drop full-page rasters (they are OCR sources, not figures). */
+  ocr?: boolean;
 }
 
 interface ImageAnchor {
@@ -142,6 +138,30 @@ function makeImage(
   };
 }
 
+function isFullPageScan(image: CapturedDocumentImage): boolean {
+  const w = image.width ?? 0;
+  const h = image.height ?? 0;
+  if (w > 0 && h > 0) {
+    const pixels = w * h;
+    if (pixels >= FULL_PAGE_MIN_PIXELS) return true;
+    if (Math.min(w, h) >= FULL_PAGE_MIN_EDGE && Math.max(w, h) >= FULL_PAGE_MIN_EDGE) return true;
+    // Near A4/letter aspect at high res
+    const ratio = w / h;
+    if (pixels >= 800_000 && ratio > 0.65 && ratio < 0.85) return true;
+  }
+  // Huge file without dimension metadata — treat as page scan
+  if (image.bytes >= 400_000 && (!image.width || !image.height)) return true;
+  return false;
+}
+
+function isTinyOrDecorative(image: CapturedDocumentImage): boolean {
+  if (image.bytes < MIN_FIGURE_BYTES) return true;
+  const w = image.width ?? 0;
+  const h = image.height ?? 0;
+  if (w > 0 && h > 0 && w * h < MIN_FIGURE_PIXELS) return true;
+  return false;
+}
+
 function limitImages(images: CapturedDocumentImage[]) {
   const selected: CapturedDocumentImage[] = [];
   let totalBytes = 0;
@@ -152,6 +172,64 @@ function limitImages(images: CapturedDocumentImage[]) {
     totalBytes += image.bytes;
   }
   return selected;
+}
+
+/**
+ * Prefer real figures over full-page page scans / soft masks.
+ * For OCR scans, page rasters must never reappear as "figures" in the Thai book.
+ */
+function filterExportableImages(
+  images: CapturedDocumentImage[],
+  context: ImageCaptureContext
+): { images: CapturedDocumentImage[]; skippedFullPageScans: number } {
+  let skippedFullPageScans = 0;
+  const kept: CapturedDocumentImage[] = [];
+
+  // Soft-mask pairs: same page, nearly identical dimensions — keep the larger (color) file only
+  const byPage = new Map<number, CapturedDocumentImage[]>();
+  for (const image of images) {
+    if (isTinyOrDecorative(image)) continue;
+    if (isFullPageScan(image)) {
+      skippedFullPageScans += 1;
+      // OCR documents: never export page scans as figures
+      if (context.ocr) continue;
+      // Digital PDFs that only contain full-page art (rare): also skip — text is the product
+      continue;
+    }
+    const page = image.page ?? 0;
+    const list = byPage.get(page) ?? [];
+    list.push(image);
+    byPage.set(page, list);
+  }
+
+  for (const [, list] of byPage) {
+    // Deduplicate near-identical soft masks on the same page
+    list.sort((a, b) => b.bytes - a.bytes);
+    const seen: CapturedDocumentImage[] = [];
+    for (const candidate of list) {
+      const dup = seen.some(
+        (s) =>
+          Math.abs((s.width ?? 0) - (candidate.width ?? 0)) <= 4 &&
+          Math.abs((s.height ?? 0) - (candidate.height ?? 0)) <= 4 &&
+          Math.abs(s.bytes - candidate.bytes) < Math.max(s.bytes, candidate.bytes) * 0.15
+      );
+      if (!dup) seen.push(candidate);
+    }
+    kept.push(...seen);
+  }
+
+  // Images without page grouping
+  if (byPage.size === 0) {
+    for (const image of images) {
+      if (isTinyOrDecorative(image) || isFullPageScan(image)) {
+        if (isFullPageScan(image)) skippedFullPageScans += 1;
+        continue;
+      }
+      kept.push(image);
+    }
+  }
+
+  return { images: limitImages(kept), skippedFullPageScans };
 }
 
 function readXmlAttributes(tag: string) {
@@ -331,17 +409,35 @@ export async function captureDocumentImages(
   context: ImageCaptureContext = {}
 ): Promise<ImageCaptureResult> {
   try {
+    let raw: CapturedDocumentImage[] = [];
     if (type === "docx") {
-      return { images: await extractDocxImages(buffer) };
-    }
-    if (type === "pdf") {
-      return { images: await extractPdfImages(buffer, signal, context) };
-    }
-    if (type === "png" || type === "jpg") {
+      raw = await extractDocxImages(buffer);
+    } else if (type === "pdf") {
+      raw = await extractPdfImages(buffer, signal, context);
+    } else if (type === "png" || type === "jpg") {
       const image = makeImage(buffer, `uploaded.${type}`, "upload", 0);
-      return { images: image ? [image] : [] };
+      raw = image ? [image] : [];
     }
-    return { images: [] };
+
+    const { images, skippedFullPageScans } = filterExportableImages(raw, context);
+    const warnings: string[] = [];
+    if (skippedFullPageScans > 0) {
+      warnings.push(
+        context.ocr
+          ? `Skipped ${skippedFullPageScans} full-page scan image(s) (used only for OCR, not re-inserted as figures).`
+          : `Skipped ${skippedFullPageScans} full-page image(s) that look like page scans rather than figures.`
+      );
+    }
+    if (raw.length > 0 && images.length === 0) {
+      warnings.push(
+        "No standalone figures were found. For scanned PDFs this is expected — only the OCR text is exported."
+      );
+    }
+    return {
+      images,
+      skippedFullPageScans,
+      warning: warnings.length ? warnings.join(" ") : undefined,
+    };
   } catch (error) {
     console.warn("image capture failed:", error);
     return {

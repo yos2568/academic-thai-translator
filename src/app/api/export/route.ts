@@ -44,7 +44,15 @@ export async function POST(request: NextRequest) {
   if (contentLength > MAX_EXPORT_BODY_BYTES) {
     return NextResponse.json({ error: "Export request is too large." }, { status: 413 });
   }
-  let body: { text?: unknown; format?: unknown; filename?: unknown; images?: unknown };
+  let body: {
+    text?: unknown;
+    format?: unknown;
+    filename?: unknown;
+    images?: unknown;
+    title?: unknown;
+    author?: unknown;
+    subject?: unknown;
+  };
   try {
     body = await request.json();
   } catch {
@@ -57,6 +65,11 @@ export async function POST(request: NextRequest) {
     typeof body.filename === "string" ? body.filename : "translation"
   );
   const images = parseImages(body.images);
+  const textbookMeta = {
+    title: typeof body.title === "string" ? body.title.slice(0, 200) : undefined,
+    author: typeof body.author === "string" ? body.author.slice(0, 120) : undefined,
+    subject: typeof body.subject === "string" ? body.subject.slice(0, 120) : undefined,
+  };
 
   if (!text) {
     return NextResponse.json({ error: "Nothing to export." }, { status: 400 });
@@ -73,7 +86,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const buffer =
-      format === "docx" ? await buildDocx(text, filename, images) : buildTxt(text);
+      format === "docx" ? await buildDocx(text, filename, images, textbookMeta) : buildTxt(text);
 
     const contentType =
       format === "docx"

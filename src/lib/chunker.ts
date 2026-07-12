@@ -1,9 +1,10 @@
 /**
- * Paragraph-aware chunking. Rough heuristic: ~4 chars per token, so a
- * ~3,000-token chunk is ~12,000 characters. Paragraphs are never split
- * unless a single paragraph alone exceeds the limit.
+ * Paragraph-aware chunking. Grok-class models handle large contexts well;
+ * larger chunks = fewer round-trips (major speed win on long handbooks).
+ * Rough heuristic: ~4 chars per token → ~6k tokens at 24k chars.
+ * Paragraphs are never split unless a single paragraph alone exceeds the limit.
  */
-const MAX_CHUNK_CHARS = 12_000;
+const MAX_CHUNK_CHARS = 24_000;
 
 export function chunkText(text: string): string[] {
   const paragraphs = text.split(/\n{2,}/).filter((p) => p.trim().length > 0);

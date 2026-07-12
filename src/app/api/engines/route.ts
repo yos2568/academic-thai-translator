@@ -5,8 +5,12 @@ import { allowRequest, requestIp } from "@/lib/ratelimit";
 export const runtime = "nodejs";
 
 export async function GET() {
-  const config = envPipelineConfig();
-  return Response.json({ configured: Boolean(config), draft: config ? publicProvider(config.draft) : null });
+  const config = await envPipelineConfig();
+  return Response.json({
+    configured: Boolean(config),
+    draft: config ? publicProvider(config.draft) : null,
+    grokAuthImport: process.env.ALLOW_GROK_AUTH_IMPORT === "true",
+  });
 }
 
 export async function POST(request: Request) {

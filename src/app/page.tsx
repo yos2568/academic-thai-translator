@@ -10,7 +10,7 @@ import SettingsPanel, { encodeSettings, type SavedSettings } from "@/components/
 import GlossaryEditor, { type GlossaryTerm } from "@/components/GlossaryEditor";
 import QaReportCard from "@/components/QaReportCard";
 import type { QaReport } from "@/lib/qa/checks";
-import type { CapturedDocumentImage } from "@/lib/document-images";
+import type { CapturedDocumentImage } from "@/lib/document-image-types";
 
 type Step = "upload" | "review" | "translating" | "done";
 
@@ -229,12 +229,13 @@ export default function Home() {
     <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-10 sm:px-6">
       <header className="mb-10 text-center">
         <div className="mb-5 flex justify-end"><SettingsPanel value={settings} onChange={setSettings} /></div>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-violet-700">Version 2 · Grok OAuth</p>
         <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
           Academic Thai Translator
         </h1>
-        <p className="mx-auto mt-2 max-w-xl text-sm text-slate-500 sm:text-base">
-          Convert English documents into formal, academic Thai — with
-          consistent terminology and clean document export.
+        <p className="mx-auto mt-2 max-w-2xl text-sm text-slate-500 sm:text-base">
+          Extract text and figures from PDF, Word, or TXT, translate with Grok into
+          formal academic Thai, and export a textbook-ready .docx for publishing.
         </p>
       </header>
 
@@ -308,7 +309,7 @@ export default function Home() {
       </main>
 
       <footer className="mt-12 text-center text-xs text-slate-500">
-        Files are processed in memory and never stored on the server.
+        Files are processed in memory and never stored on the server. Sign in with Grok in Settings to translate.
       </footer>
     </div>
   );

@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { chunkText } from "@/lib/chunker";
-import { extractGlossaryTerms, formatGlossary } from "@/lib/glossary";
+import { extractGlossaryTerms, formatGlossary, seedDomainGlossary } from "@/lib/glossary";
 import { postEdit } from "@/lib/postedit/academic";
 import { getPipelineConfig } from "@/lib/providers";
 import { checkTranslation } from "@/lib/qa/checks";
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
   if (text.length > MAX_INPUT_CHARS) return Response.json({ error: "The document is too long." }, { status: 413 });
 
   let config;
-  try { config = getPipelineConfig(request); }
+  try { config = await getPipelineConfig(request); }
   catch (error) { return Response.json({ error: error instanceof Error ? error.message : "Invalid provider configuration." }, { status: 400 }); }
 
   const chunks = chunkText(text);
@@ -85,6 +85,7 @@ export async function POST(request: Request) {
         // Seeded first so extractGlossaryTerms's "only add if absent" rule
         // (glossary.ts) keeps pinned translations from being overwritten.
         const glossary = new Map(pinnedGlossary);
+        seedDomainGlossary(glossary);
         let pending: ReturnType<typeof draftChunk> | null = null;
 
         for (let i = 0; i < chunks.length; i++) {

@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Academic Thai Translator",
+  title: "Academic Thai Translator v2",
   description:
-    "Translate English documents and scans into formal academic Thai with configurable providers and QA.",
+    "Extract PDF/DOCX/TXT with images, translate via Grok OAuth into formal academic Thai, and export textbook-ready documents.",
 };
 
 export default function RootLayout({

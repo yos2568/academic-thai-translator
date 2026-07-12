@@ -1,4 +1,4 @@
-const STEPS = ["Upload", "Review", "Translate", "Export"] as const;
+const STEPS = ["Upload", "Review", "Translate", "Textbook"] as const;
 
 export default function StepIndicator({ current }: { current: number }) {
   return (
