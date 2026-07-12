@@ -45,7 +45,7 @@ export default function TranslationPanel({
           {translating ? stage === "postedit" ? "Polishing academic Thai…" : stage === "qa" ? "Checking fidelity…" : "Creating translation…" : "Translation"}
         </h2>
         {translating && progress ? (
-          <span className="text-sm text-slate-400">
+          <span className="text-sm text-slate-500">
             Section {progress.chunk} of {progress.total}
           </span>
         ) : thaiText ? (
@@ -69,7 +69,7 @@ export default function TranslationPanel({
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="hidden lg:block">
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
             English source
           </h3>
           <div className="h-[28rem] overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-7 text-slate-600 whitespace-pre-wrap">
@@ -77,11 +77,15 @@ export default function TranslationPanel({
           </div>
         </div>
         <div>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
             Academic Thai
           </h3>
           <div
             ref={outputRef}
+            lang="th"
+            role="log"
+            aria-busy={translating}
+            aria-label="Academic Thai translation output"
             className="thai-text h-[28rem] overflow-y-auto rounded-xl border border-blue-100 bg-white p-4 text-slate-800 whitespace-pre-wrap"
           >
             {thaiText}
@@ -89,6 +93,11 @@ export default function TranslationPanel({
               <span className="ml-0.5 inline-block h-4 w-2 animate-pulse bg-blue-400 align-text-bottom" />
             )}
           </div>
+          <span className="sr-only" aria-live="polite">
+            {translating && progress
+              ? `Translating section ${progress.chunk} of ${progress.total}: ${stage === "postedit" ? "polishing academic Thai" : stage === "qa" ? "checking fidelity" : "creating translation"}.`
+              : ""}
+          </span>
         </div>
       </div>
     </div>

@@ -36,7 +36,7 @@ export default function TextPreview({
           <h2 className="text-lg font-semibold text-slate-800">
             {usedOcr ? "Review OCR text" : "Review extracted text"}
           </h2>
-          <p className="mt-0.5 text-sm text-slate-400">
+          <p className="mt-0.5 text-sm text-slate-500">
             {filename} · {text.length.toLocaleString()} characters — edit to
             remove headers, footers, or anything you don&apos;t want translated
           </p>
@@ -50,7 +50,7 @@ export default function TextPreview({
             <h3 className="text-sm font-semibold text-slate-700">
               Captured images
             </h3>
-            <span className="text-xs font-medium text-slate-400">
+            <span className="text-xs font-medium text-slate-500">
               {images.length} will be included in the Word export
             </span>
           </div>
@@ -68,7 +68,7 @@ export default function TextPreview({
                   unoptimized
                   className="h-28 w-full object-contain"
                 />
-                <figcaption className="truncate border-t border-slate-100 px-2 py-1 text-xs text-slate-400">
+                <figcaption className="truncate border-t border-slate-100 px-2 py-1 text-xs text-slate-500">
                   {image.page
                     ? `Page ${image.page}`
                     : typeof image.anchorParagraphIndex === "number"
@@ -79,7 +79,7 @@ export default function TextPreview({
             ))}
           </div>
           {images.length > 8 && (
-            <p className="mt-2 text-xs text-slate-400">
+            <p className="mt-2 text-xs text-slate-500">
               Showing 8 previews. All captured images will be kept for Word export.
             </p>
           )}

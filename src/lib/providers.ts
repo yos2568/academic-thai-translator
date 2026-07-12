@@ -3,7 +3,16 @@ import "server-only";
 export type ProviderConfig =
   | { provider: "anthropic"; apiKey: string; model?: string }
   | { provider: "openai-compatible"; baseUrl: string; apiKey?: string; model: string }
-  | { provider: "ollama"; baseUrl: string; model: string };
+  | { provider: "ollama"; baseUrl: string; model: string }
+  | {
+      provider: "oauth-openai-compatible";
+      baseUrl: string;
+      model: string;
+      tokenUrl: string;
+      clientId: string;
+      clientSecret: string;
+      scope?: string;
+    };
 
 export interface PipelineConfig {
   draft: ProviderConfig;
@@ -37,6 +46,24 @@ export function validateProvider(value: unknown): ProviderConfig {
     const model = typeof item.model === "string" ? item.model.trim() : "";
     if (!model) throw new Error("An Ollama model name is required.");
     return { provider: item.provider, baseUrl: cleanUrl(item.baseUrl, "http://localhost:11434"), model };
+  }
+  if (item.provider === "oauth-openai-compatible") {
+    const model = typeof item.model === "string" ? item.model.trim() : "";
+    if (!model) throw new Error("A model name is required.");
+    const clientId = typeof item.clientId === "string" ? item.clientId.trim() : "";
+    if (!clientId) throw new Error("An OAuth client ID is required.");
+    const clientSecret = typeof item.clientSecret === "string" ? item.clientSecret.trim() : "";
+    if (!clientSecret) throw new Error("An OAuth client secret is required.");
+    const scope = typeof item.scope === "string" && item.scope.trim() ? item.scope.trim() : undefined;
+    return {
+      provider: "oauth-openai-compatible",
+      baseUrl: cleanUrl(item.baseUrl),
+      tokenUrl: cleanUrl(item.tokenUrl),
+      model,
+      clientId,
+      clientSecret,
+      scope,
+    };
   }
   throw new Error("Unsupported provider.");
 }

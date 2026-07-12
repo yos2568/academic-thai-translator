@@ -10,6 +10,7 @@ import {
   TextRun,
 } from "docx";
 import type { CapturedDocumentImage, CapturedImageType } from "./document-images";
+import { clamp } from "./util";
 
 /** Thai academic document conventions: TH SarabunPSK 16pt body, 1.5 line spacing. */
 const THAI_FONT = "TH SarabunPSK";
@@ -18,10 +19,6 @@ const MAX_EXPORT_IMAGES = 24;
 const MAX_EXPORT_IMAGE_BYTES = 2_500_000;
 const MAX_IMAGE_WIDTH = 420;
 const MAX_IMAGE_HEIGHT = 520;
-
-function clamp(value: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, value));
-}
 
 function scaledDimensions(image: CapturedDocumentImage) {
   const width = image.width && image.width > 0 ? image.width : MAX_IMAGE_WIDTH;

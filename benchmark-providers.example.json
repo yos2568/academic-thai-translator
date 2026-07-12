@@ -1,0 +1,17 @@
+[
+  {
+    "name": "claude-sonnet",
+    "draft": { "provider": "anthropic", "apiKey": "sk-ant-...", "model": "claude-sonnet-5" },
+    "postedit": null
+  },
+  {
+    "name": "typhoon-ollama",
+    "draft": { "provider": "ollama", "baseUrl": "http://localhost:11434", "model": "typhoon-translate:4b" },
+    "postedit": { "provider": "anthropic", "apiKey": "sk-ant-...", "model": "claude-sonnet-5" }
+  },
+  {
+    "name": "typhoon-api",
+    "draft": { "provider": "openai-compatible", "baseUrl": "https://api.opentyphoon.ai/v1", "apiKey": "sk-...", "model": "typhoon-v2.1-12b-instruct" },
+    "postedit": null
+  }
+]

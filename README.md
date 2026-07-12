@@ -65,10 +65,34 @@ By default, OpenAI-compatible and Ollama URLs must resolve exclusively to public
 
 - Caddy provides TLS and team-only HTTP basic authentication in the recommended VPS setup.
 - Upload type and size are verified using extensions and magic bytes.
-- Translation, extraction, and provider-test routes use namespaced, per-IP in-memory rate limits. For multi-instance scaling, replace this with a shared store such as Redis.
+- Translation, extraction, and provider-test routes use namespaced, per-IP rate limits backed by `RateLimitStore` (`src/lib/ratelimit.ts`). The default `MemoryRateLimitStore` is process-local. For multi-instance scaling, implement `RateLimitStore` against shared state (e.g. Redis) and call `setRateLimitStore()` once at startup — no route handler needs to change.
 - User-configured upstream hostnames are resolved and every returned IP is checked before connecting. Upstream redirects are rejected so a public URL cannot redirect the server to a private target. A residual DNS-rebinding/time-of-check-to-time-of-use risk remains because the subsequent HTTP client performs its own DNS resolution. This is accepted for the intended password-gated team deployment; a public multi-tenant service should pin resolved addresses or use an egress proxy.
 - `ALLOW_PRIVATE_UPSTREAMS=true` intentionally permits private, loopback, link-local, and Compose-internal upstreams. Never enable it on an untrusted public deployment.
 - Caddy overwrites forwarding headers in the recommended topology, making the first `X-Forwarded-For` address suitable for this deployment's rate-limit key.
+
+## Testing
+
+Unit tests cover the security- and logic-critical pure modules (SSRF host classification, rate limiting, chunking, QA checks, glossary extraction):
+
+```bash
+npm test
+```
+
+An end-to-end smoke test builds the standalone bundle, boots it, and drives upload → extract → translate (against a local stub provider, no real API key needed) → export over HTTP:
+
+```bash
+npm run test:smoke
+```
+
+## Benchmarking engines
+
+To compare draft/post-edit provider configurations on the same document (latency and QA pass rate), copy `benchmark-providers.example.json` to `benchmark-providers.json`, fill in real credentials, start the app, then run:
+
+```bash
+npm run benchmark
+```
+
+Pass a different fixture or providers file as arguments: `node scripts/benchmark-engines.mjs path/to/doc.txt path/to/providers.json`. Set `TRANSLATOR_APP_URL` if the app isn't at `http://127.0.0.1:3000`.
 
 ## Deployment
 

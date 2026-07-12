@@ -86,7 +86,7 @@ export default function UploadCard({
             ? "Drop your document here"
             : "Drag & drop your English document, or click to browse"}
       </p>
-      <p className="mt-2 text-sm text-slate-400">
+      <p className="mt-2 text-sm text-slate-500">
         {busy
           ? "Scanned PDFs use OCR and may take a few minutes."
           : "Supported formats — max 10 MB"}
