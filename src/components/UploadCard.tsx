@@ -3,7 +3,8 @@
 import { useCallback } from "react";
 import { useDropzone, type FileRejection } from "react-dropzone";
 
-const MAX_SIZE = 10 * 1024 * 1024;
+const MAX_SIZE = 50 * 1024 * 1024;
+const MAX_SIZE_LABEL = `${MAX_SIZE / (1024 * 1024)} MB`;
 
 interface UploadCardProps {
   onFile: (file: File) => void;
@@ -26,7 +27,7 @@ export default function UploadCard({
         const code = rejected[0].errors[0]?.code;
         onError(
           code === "file-too-large"
-            ? "File is too large. The maximum size is 10 MB."
+            ? `File is too large. The maximum size is ${MAX_SIZE_LABEL}.`
             : "Please upload a .docx, .pdf, .txt, .png, or .jpg file."
         );
         return;
@@ -89,7 +90,7 @@ export default function UploadCard({
       <p className="mt-2 text-sm text-slate-500">
         {busy
           ? "Scanned PDFs use OCR and may take a few minutes."
-          : "Supported formats — max 10 MB"}
+          : `Supported formats — max ${MAX_SIZE_LABEL}`}
       </p>
       {busy && (
         <div className="mx-auto mt-5 max-w-md">

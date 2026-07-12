@@ -1,6 +1,7 @@
 import { hasMagicBytes } from "./util";
 
-export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+export const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
+const MAX_FILE_SIZE_LABEL = `${MAX_FILE_SIZE / (1024 * 1024)} MB`;
 
 export type SupportedType = "docx" | "pdf" | "txt" | "png" | "jpg";
 
@@ -37,7 +38,7 @@ export function validateUpload(filename: string, buffer: Buffer): SupportedType 
     throw new ValidationError("The uploaded file is empty.");
   }
   if (buffer.length > MAX_FILE_SIZE) {
-    throw new ValidationError("File is too large. The maximum size is 10 MB.");
+    throw new ValidationError(`File is too large. The maximum size is ${MAX_FILE_SIZE_LABEL}.`);
   }
 
   if (type === "pdf" && !hasMagicBytes(buffer, [0x25, 0x50, 0x44, 0x46])) {

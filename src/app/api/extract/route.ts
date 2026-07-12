@@ -36,7 +36,7 @@ function preflight(request: NextRequest): NextResponse | null {
   const contentLength = Number(request.headers.get("content-length") ?? 0);
   if (contentLength > MAX_FILE_SIZE + 4096) {
     return NextResponse.json(
-      { error: "File is too large. The maximum size is 10 MB." },
+      { error: `File is too large. The maximum size is ${MAX_FILE_SIZE / (1024 * 1024)} MB.` },
       { status: 413 }
     );
   }

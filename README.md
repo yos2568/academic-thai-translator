@@ -7,7 +7,7 @@ A Next.js 16 application for translating English academic documents into formal 
 - Multi-provider BYOK: Anthropic, OpenAI-compatible APIs, or Ollama
 - Optional academic-register post-editing with a separately selected provider
 - Browser-streamed progress and deterministic preservation checks for numbers, citations, and URLs
-- Signature-validated uploads capped at 10 MB
+- Signature-validated uploads capped at 50 MB
 - Tesseract Thai/English OCR with a 40-page and 120-second process ceiling
 - Private-network SSRF protection for user-supplied upstream URLs
 - Per-route request throttling, request-body limits, security headers, and URL-redacted errors
